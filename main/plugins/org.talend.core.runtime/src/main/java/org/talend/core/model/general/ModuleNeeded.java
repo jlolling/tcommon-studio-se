@@ -13,12 +13,16 @@
 package org.talend.core.model.general;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.ops4j.pax.url.mvn.MavenResolver;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.ServiceReference;
+import org.osgi.framework.Version;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.ILibraryManagerService;
 import org.talend.core.model.process.IElementParameter;
@@ -66,8 +70,11 @@ public class ModuleNeeded {
     private String moduleLocaion;
 
     /**
-     * the maven uri configured from studio in components,extensions......
+     * The maven uri configured from studio in components,extensions...... and cached in the MavenUriIndex.xml, one jar
+     * might be configured with many mvnuris
      */
+    private Set<String> snapshotMvnUris;
+
     private String mavenUri;
 
     /**
@@ -434,7 +441,7 @@ public class ModuleNeeded {
         return true;
     }
 
-    public String getMavenUriSnapshot(boolean autoGenerate) {
+    public String getMavenUriSnapshot() {
         MavenArtifact artifact = MavenUrlHelper.parseMvnUrl(getMavenUri());
         // for non-talend libs.
         if (artifact != null && !MavenConstants.DEFAULT_LIB_GROUP_ID.equals(artifact.getGroupId())) {
@@ -443,27 +450,50 @@ public class ModuleNeeded {
 
         // set an defaut maven uri if uri is null or empty, this could be done in the set
         // but this would mean to sure the set is called after the name is set.
-        if (mavenUriSnapshot == null || "".equals(mavenUriSnapshot)) { //$NON-NLS-1$
+        if (StringUtils.isEmpty(mavenUriSnapshot)) {
             String configuredUri = getMavenUri();
-            if (configuredUri != null) {
+            if (!StringUtils.isEmpty(configuredUri)) {
                 mavenUriSnapshot = MavenUrlHelper.generateSnapshotMavenUri(configuredUri);
             }
-            if (mavenUriSnapshot == null || "".equals(mavenUriSnapshot)) {
-                // get snapshot maven uri from index
-                ILibraryManagerService libManagerService = (ILibraryManagerService) GlobalServiceRegister.getDefault()
-                        .getService(ILibraryManagerService.class);
-                mavenUriSnapshot = libManagerService.getMavenUriFromIndex(getModuleName());
-            }
-            if (autoGenerate && (mavenUriSnapshot == null || "".equals(mavenUriSnapshot))) {//$NON-NLS-1$
-                return MavenUrlHelper.generateMvnUrlForJarName(getModuleName());
+        }
+        if (StringUtils.isEmpty(mavenUriSnapshot)) {
+            // get the latest snapshot maven uri from index
+            final Set<String> configuredSnapshotMvnUris = getConfiguredSnapshotMvnUris();
+            if (configuredSnapshotMvnUris.size() == 1) {
+                mavenUriSnapshot = configuredSnapshotMvnUris.iterator().next();
+            } else {
+                Iterator<String> iter = configuredSnapshotMvnUris.iterator();
+                String maxVerstion = null;
+                while (iter.hasNext()) {
+                    String mvnUri = iter.next();
+                    if (maxVerstion == null) {
+                        maxVerstion = mvnUri;
+                    } else {
+                        MavenArtifact lastArtifact = MavenUrlHelper.parseMvnUrl(maxVerstion);
+                        MavenArtifact currentArtifact = MavenUrlHelper.parseMvnUrl(mvnUri);
+                        if (lastArtifact != null && currentArtifact != null) {
+                            String lastV = lastArtifact.getVersion();
+                            lastV = lastV.replace(MavenConstants.SNAPSHOT, "");
+                            String currentV = currentArtifact.getVersion();
+                            currentV = currentV.replace(MavenConstants.SNAPSHOT, "");
+                            if (!lastV.equals(currentV)) {
+                                Version lastVersion = new Version(lastV);
+                                Version currentVersion = new Version(currentV);
+                                if (currentVersion.compareTo(lastVersion) > 0) {
+                                    maxVerstion = mvnUri;
+                                }
+                            }
+                        }
+                    }
+                }
+                mavenUriSnapshot = maxVerstion;
             }
         }
+        if (StringUtils.isEmpty(mavenUriSnapshot)) {
+            // generate a default one
+            mavenUriSnapshot = MavenUrlHelper.generateMvnUrlForJarName(getModuleName());
+        }
         return mavenUriSnapshot;
-
-    }
-
-    public String getMavenUriSnapshot() {
-        return getMavenUriSnapshot(true);
     }
 
     /**
@@ -475,11 +505,41 @@ public class ModuleNeeded {
         this.mavenUriSnapshot = mavenUriSnapshot;
     }
 
+    /**
+     * 
+     * one jar might be configured with many mvnuris , when mavenUri is null in the ModuleNeeded , get Mvnuris from the
+     * index to deploy
+     * 
+     * @return
+     */
+    public Set<String> getConfiguredSnapshotMvnUris() {
+        if (snapshotMvnUris != null) {
+            return snapshotMvnUris;
+        } else {
+            // get snapshot maven uris from index
+            snapshotMvnUris = new HashSet<String>();
+            ILibraryManagerService libManagerService = (ILibraryManagerService) GlobalServiceRegister.getDefault().getService(
+                    ILibraryManagerService.class);
+            String mvnUrisFromIndex = libManagerService.getMavenUriFromIndex(getModuleName());
+            if (mvnUrisFromIndex != null) {
+                final String[] mvnUris = mvnUrisFromIndex.split(MavenUrlHelper.MVN_INDEX_SPLITER);
+                for (String mvnUri : mvnUris) {
+                    snapshotMvnUris.add(mvnUri);
+                }
+
+            } else {
+                snapshotMvnUris.add(MavenUrlHelper.generateMvnUrlForJarName(getModuleName()));
+            }
+
+        }
+        return snapshotMvnUris;
+    }
+
     public String getMavenUri(boolean autoGenerate) {
         // set an defaut maven uri if uri is null or empty, this could be done in the set
         // but this would mean to sure the set is called after the name is set.
         if (autoGenerate && (mavenUri == null || "".equals(mavenUri))) { //$NON-NLS-1$
-            return MavenUrlHelper.generateMvnUrlForJarName(getModuleName());
+            return MavenUrlHelper.generateMvnUrlForJarName(getModuleName(), true, false);
         }
         return mavenUri;
     }
