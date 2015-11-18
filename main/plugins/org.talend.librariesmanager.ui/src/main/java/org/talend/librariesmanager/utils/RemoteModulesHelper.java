@@ -41,6 +41,8 @@ import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.talend.commons.CommonsPlugin;
 import org.talend.commons.exception.ExceptionHandler;
 import org.talend.commons.utils.network.NetworkUtil;
+import org.talend.core.GlobalServiceRegister;
+import org.talend.core.ILibraryManagerService;
 import org.talend.core.model.general.ModuleNeeded;
 import org.talend.core.model.general.ModuleToInstall;
 import org.talend.core.nexus.NexusServerBean;
@@ -124,17 +126,16 @@ public class RemoteModulesHelper {
                         // get block of 100 jars
                         String jarsToCheck = "";
                         while (index < limit && index < mavenUriSet.size()) {
+                            index++;
                             String uriToCheck = iterator.next();
                             final MavenArtifact parseMvnUrl = MavenUrlHelper.parseMvnUrl(uriToCheck);
                             if (parseMvnUrl != null) {
                                 requiredArtifacts.put(uriToCheck, parseMvnUrl);
                                 jarsToCheck += parseMvnUrl.getArtifactId();
-                                index++;
                                 if (index < limit && index < mavenUriSet.size()) {
                                     jarsToCheck += ",";
                                 }
                             }
-
                         }
                         limit += 100;
                         TalendLibsServerManager manager = TalendLibsServerManager.getInstance();
@@ -344,6 +345,9 @@ public class RemoteModulesHelper {
 
     private static final String SEPARATOR_SLIP = "\\|"; //$NON-NLS-1$
 
+    /**
+     * key : mvnuri(without SANPSHOT in version) value : ModuleToInstall
+     */
     private Map<String, ModuleToInstall> cache = new HashMap<String, ModuleToInstall>();
 
     private RemoteModulesHelper() {
@@ -456,22 +460,32 @@ public class RemoteModulesHelper {
             ModuleNeeded module = iterator.next();
             String mvnUri = module.getMavenUri();
             if (mvnUri == null) {
-                Set<String> configuredSnapshotMvnUris = module.getConfiguredSnapshotMvnUris();
+                Set<String> configuredSnapshotMvnUris = new HashSet<String>();
+                ILibraryManagerService librairesManagerService = (ILibraryManagerService) GlobalServiceRegister.getDefault()
+                        .getService(ILibraryManagerService.class);
+                final String mavenUriFromIndex = librairesManagerService.getMavenUriFromIndex(module.getModuleName());
+                if (mavenUriFromIndex != null) {
+                    final String[] split = mavenUriFromIndex.split(MavenUrlHelper.MVN_INDEX_SPLITER);
+                    for (String fromIndex : split) {
+                        configuredSnapshotMvnUris.add(fromIndex);
+                    }
+                }
                 if (configuredSnapshotMvnUris.isEmpty()) {
                     mvnUri = module.getMavenUri(true);
                 } else {
-                    iterator.remove();
                     // add all mvnuris from index to try to download
                     for (String snapshotUri : configuredSnapshotMvnUris) {
                         String uri = MavenUrlHelper.generateUriFromSnapshot(snapshotUri);
-                        ModuleNeeded newModule = new ModuleNeeded(null, module.getModuleName(), null, true);
-                        newModule.setMavenUri(uri);
-                        if (!contextMap.keySet().contains(mvnUri)) {
-                            List<ModuleNeeded> modules = new ArrayList<ModuleNeeded>();
-                            modules.add(module);
-                            contextMap.put(mvnUri, modules);
-                        } else {
-                            contextMap.get(mvnUri).add(module);
+                        if (uri != null) {
+                            ModuleNeeded newModule = new ModuleNeeded(null, module.getModuleName(), null, true);
+                            newModule.setMavenUri(uri);
+                            if (!contextMap.keySet().contains(uri)) {
+                                List<ModuleNeeded> modules = new ArrayList<ModuleNeeded>();
+                                modules.add(module);
+                                contextMap.put(uri, modules);
+                            } else {
+                                contextMap.get(uri).add(module);
+                            }
                         }
                     }
                 }

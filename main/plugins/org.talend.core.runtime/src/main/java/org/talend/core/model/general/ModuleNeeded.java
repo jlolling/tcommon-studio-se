@@ -13,8 +13,6 @@
 package org.talend.core.model.general;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -457,15 +455,14 @@ public class ModuleNeeded {
             }
         }
         if (StringUtils.isEmpty(mavenUriSnapshot)) {
-            // get the latest snapshot maven uri from index
-            final Set<String> configuredSnapshotMvnUris = getConfiguredSnapshotMvnUris();
-            if (configuredSnapshotMvnUris.size() == 1) {
-                mavenUriSnapshot = configuredSnapshotMvnUris.iterator().next();
-            } else {
-                Iterator<String> iter = configuredSnapshotMvnUris.iterator();
+            // get the latest snapshot maven uri from index as default
+            ILibraryManagerService libManagerService = (ILibraryManagerService) GlobalServiceRegister.getDefault().getService(
+                    ILibraryManagerService.class);
+            String mvnUrisFromIndex = libManagerService.getMavenUriFromIndex(getModuleName());
+            if (mvnUrisFromIndex != null) {
+                final String[] split = mvnUrisFromIndex.split(MavenUrlHelper.MVN_INDEX_SPLITER);
                 String maxVerstion = null;
-                while (iter.hasNext()) {
-                    String mvnUri = iter.next();
+                for (String mvnUri : split) {
                     if (maxVerstion == null) {
                         maxVerstion = mvnUri;
                     } else {
@@ -485,10 +482,12 @@ public class ModuleNeeded {
                             }
                         }
                     }
+
                 }
                 mavenUriSnapshot = maxVerstion;
             }
         }
+
         if (StringUtils.isEmpty(mavenUriSnapshot)) {
             // generate a default one
             mavenUriSnapshot = MavenUrlHelper.generateMvnUrlForJarName(getModuleName());
@@ -503,36 +502,6 @@ public class ModuleNeeded {
      */
     public void setMavenUriSnapshot(String mavenUriSnapshot) {
         this.mavenUriSnapshot = mavenUriSnapshot;
-    }
-
-    /**
-     * 
-     * one jar might be configured with many mvnuris , when mavenUri is null in the ModuleNeeded , get Mvnuris from the
-     * index to deploy
-     * 
-     * @return
-     */
-    public Set<String> getConfiguredSnapshotMvnUris() {
-        if (snapshotMvnUris != null) {
-            return snapshotMvnUris;
-        } else {
-            // get snapshot maven uris from index
-            snapshotMvnUris = new HashSet<String>();
-            ILibraryManagerService libManagerService = (ILibraryManagerService) GlobalServiceRegister.getDefault().getService(
-                    ILibraryManagerService.class);
-            String mvnUrisFromIndex = libManagerService.getMavenUriFromIndex(getModuleName());
-            if (mvnUrisFromIndex != null) {
-                final String[] mvnUris = mvnUrisFromIndex.split(MavenUrlHelper.MVN_INDEX_SPLITER);
-                for (String mvnUri : mvnUris) {
-                    snapshotMvnUris.add(mvnUri);
-                }
-
-            } else {
-                snapshotMvnUris.add(MavenUrlHelper.generateMvnUrlForJarName(getModuleName()));
-            }
-
-        }
-        return snapshotMvnUris;
     }
 
     public String getMavenUri(boolean autoGenerate) {
