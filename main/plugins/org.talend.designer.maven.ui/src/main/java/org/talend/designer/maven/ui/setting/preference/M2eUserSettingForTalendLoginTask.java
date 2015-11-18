@@ -19,7 +19,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Dictionary;
 import java.util.GregorianCalendar;
+import java.util.Hashtable;
 import java.util.List;
 
 import org.apache.maven.cli.MavenCli;
@@ -44,6 +46,7 @@ import org.talend.commons.exception.ExceptionHandler;
 import org.talend.core.runtime.projectsetting.IProjectSettingTemplateConstants;
 import org.talend.designer.maven.DesignerMavenPlugin;
 import org.talend.designer.maven.repository.DefaultMavenRepositoryProvider;
+import org.talend.designer.maven.talendlib.TalendLibsServerManager;
 import org.talend.designer.maven.template.MavenTemplateManager;
 import org.talend.designer.maven.ui.DesignerMavenUiPlugin;
 import org.talend.login.AbstractLoginTask;
@@ -187,6 +190,13 @@ public class M2eUserSettingForTalendLoginTask extends AbstractLoginTask {
                 markerFile.createNewFile();
                 DefaultMavenRepositoryProvider.sync(repoFolder.getParentFile());
             }
+
+            // apply the user settings to MavenResolver
+            Dictionary<String, String> props = new Hashtable<String, String>();
+            // get the setting file same as M2E preference in M2eUserSettingForTalendLoginTask.
+            props.put("org.ops4j.pax.url.mvn.settings", studioUserSettingsFile.getPath());
+            TalendLibsServerManager.getInstance().updateMavenResolver(props);
+
         } catch (Exception e) {
             ExceptionHandler.process(e);
         }

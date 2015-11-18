@@ -49,7 +49,7 @@ import org.talend.core.nexus.NexusServerBean;
 import org.talend.core.runtime.maven.MavenArtifact;
 import org.talend.core.runtime.maven.MavenConstants;
 import org.talend.core.runtime.maven.MavenUrlHelper;
-import org.talend.librariesmanager.maven.TalendLibsServerManager;
+import org.talend.designer.maven.talendlib.TalendLibsServerManager;
 import org.talend.librariesmanager.ui.i18n.Messages;
 
 import us.monoid.json.JSONArray;

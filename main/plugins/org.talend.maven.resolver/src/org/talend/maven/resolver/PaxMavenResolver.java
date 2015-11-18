@@ -32,9 +32,9 @@ final class PaxMavenResolver implements MavenResolver {
     public File resolve(String mavenURI) throws IOException {
         if (paxResolver == null) {
             ServiceReference<org.ops4j.pax.url.mvn.MavenResolver> mavenResolverService = Activator.getContext()
-                    .getServiceReference( org.ops4j.pax.url.mvn.MavenResolver.class );
+                    .getServiceReference(org.ops4j.pax.url.mvn.MavenResolver.class);
             if (mavenResolverService != null) {
-                paxResolver = Activator.getContext().getService( mavenResolverService );
+                paxResolver = Activator.getContext().getService(mavenResolverService);
                 // the tracker is use in case the service is modifed which happens a lot during the Unit tests.
                 ServiceTracker<org.ops4j.pax.url.mvn.MavenResolver, org.ops4j.pax.url.mvn.MavenResolver> serviceTracker = new ServiceTracker<org.ops4j.pax.url.mvn.MavenResolver, org.ops4j.pax.url.mvn.MavenResolver>(
                         Activator.getContext(), org.ops4j.pax.url.mvn.MavenResolver.class,
@@ -43,7 +43,7 @@ final class PaxMavenResolver implements MavenResolver {
                             @Override
                             public org.ops4j.pax.url.mvn.MavenResolver addingService(
                                     ServiceReference<org.ops4j.pax.url.mvn.MavenResolver> reference) {
-                                return Activator.getContext().getService( reference );
+                                return Activator.getContext().getService(reference);
                             }
 
                             @Override
@@ -58,13 +58,13 @@ final class PaxMavenResolver implements MavenResolver {
                                     org.ops4j.pax.url.mvn.MavenResolver service) {
                                 paxResolver = null;
                             }
-                        } );
+                        });
                 serviceTracker.open();
             } else {
                 throw new RuntimeException(
-                        "Failed to load the service :" + org.ops4j.pax.url.mvn.MavenResolver.class.getCanonicalName() ); //$NON-NLS-1$
+                        "Failed to load the service :" + org.ops4j.pax.url.mvn.MavenResolver.class.getCanonicalName()); //$NON-NLS-1$
             }
         }// else already loaded.
-        return paxResolver.resolve( mavenURI );
+        return paxResolver.resolve(mavenURI);
     }
 }

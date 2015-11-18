@@ -59,9 +59,9 @@ import org.talend.core.nexus.NexusServerBean;
 import org.talend.core.runtime.CoreRuntimePlugin;
 import org.talend.core.runtime.maven.MavenArtifact;
 import org.talend.core.runtime.maven.MavenUrlHelper;
+import org.talend.designer.maven.talendlib.TalendLibsServerManager;
 import org.talend.designer.maven.utils.PomUtil;
 import org.talend.librariesmanager.maven.ArtifactsDeployer;
-import org.talend.librariesmanager.maven.TalendLibsServerManager;
 import org.talend.librariesmanager.model.ExtensionModuleManager;
 import org.talend.librariesmanager.model.ModulesNeededProvider;
 import org.talend.librariesmanager.prefs.LibrariesManagerUtils;
@@ -662,7 +662,7 @@ public class LocalLibraryManager implements ILibraryManagerService {
     public void deployModules(Collection<ModuleNeeded> modules, IProgressMonitor monitorWrap) {
         boolean modified = false;
         EMap<String, String> libIndex = LibrariesIndexManager.getInstance().getStudioLibIndex().getJarsToRelativePath();
-        EMap<String, String> mavenIndex = LibrariesIndexManager.getInstance().getStudioLibIndex().getJarsToRelativePath();
+        EMap<String, String> mavenIndex = LibrariesIndexManager.getInstance().getMavenLibIndex().getJarsToRelativePath();
         for (ModuleNeeded module : modules) {
             File fileToDeploy = null;
             String moduleLocation = module.getModuleLocaion();
@@ -1123,24 +1123,29 @@ public class LocalLibraryManager implements ILibraryManagerService {
             String mvnUri = libsMavenUriToDeploy.get(key);
             if (!jarsToMavenuri.containsKey(key) || mvnUri != null && jarsToMavenuri.containsKey(key)
                     && !mvnUri.equals(jarsToMavenuri.get(key))) {
-                // merge the two mvnuri value if needed
                 String valueFromIndex = jarsToMavenuri.get(key);
-                final String[] indexUris = valueFromIndex.split(MavenUrlHelper.MVN_INDEX_SPLITER);
-                final String[] toDeployUris = mvnUri.split(MavenUrlHelper.MVN_INDEX_SPLITER);
-                String newUri = mvnUri;
-                for (String indexUri : indexUris) {
-                    boolean found = false;
-                    for (String todeploy : toDeployUris) {
-                        if (indexUri.equals(todeploy)) {
-                            found = true;
+                if (valueFromIndex == null) {
+                    jarsToMavenuri.put(key, mvnUri);
+                    modified = true;
+                } else {
+                    // merge the two mvnuri value if needed
+                    String newUri = mvnUri;
+                    final String[] indexUris = valueFromIndex.split(MavenUrlHelper.MVN_INDEX_SPLITER);
+                    final String[] toDeployUris = mvnUri.split(MavenUrlHelper.MVN_INDEX_SPLITER);
+                    for (String indexUri : indexUris) {
+                        boolean found = false;
+                        for (String todeploy : toDeployUris) {
+                            if (indexUri.equals(todeploy)) {
+                                found = true;
+                            }
+                        }
+                        if (!found) {
+                            mvnUri = mvnUri + MavenUrlHelper.MVN_INDEX_SEPARATOR + indexUri;
                         }
                     }
-                    if (!found) {
-                        mvnUri = mvnUri + MavenUrlHelper.MVN_INDEX_SEPARATOR + indexUri;
-                    }
+                    jarsToMavenuri.put(key, newUri);
+                    modified = true;
                 }
-                jarsToMavenuri.put(key, newUri);
-                modified = true;
             }
         }
         if (modified) {

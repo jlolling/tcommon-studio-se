@@ -34,6 +34,7 @@ import org.talend.core.nexus.NexusServerBean;
 import org.talend.core.runtime.maven.MavenArtifact;
 import org.talend.core.runtime.maven.MavenUrlHelper;
 import org.talend.designer.maven.model.TalendMavenConstants;
+import org.talend.designer.maven.talendlib.TalendLibsServerManager;
 import org.talend.designer.maven.utils.PomUtil;
 import org.talend.utils.io.FilesUtils;
 
